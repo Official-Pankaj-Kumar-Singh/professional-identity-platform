@@ -7,6 +7,9 @@
 
 import type { AuditMetadata, EntityId, SchemaVersion } from "../platform";
 import type { ColorMode, ComponentStyleConfiguration } from "../theme";
+import type { SectionConfiguration } from "../section";
+
+export type { ResponsiveLayoutConfig, SectionConfiguration, SectionFilterConfig } from "../section";
 
 export interface NavigationLinkConfig {
   label: string;
@@ -35,24 +38,6 @@ export interface PortfolioSeoConfig {
   noIndex?: boolean;
 }
 
-export interface ResponsiveLayoutConfig {
-  containerWidth: "full" | "wide" | "standard" | "narrow";
-  columns: {
-    mobile: 1;
-    tablet: 1 | 2;
-    desktop: 1 | 2 | 3 | 4;
-  };
-  alignment: "left" | "center" | "right";
-  paddingY: "compact" | "normal" | "spacious";
-}
-
-export interface SectionFilterConfig {
-  tagFilter?: string[];
-  featuredOnly?: boolean;
-  maxItems?: number;
-  sortBy?: "chronological-desc" | "chronological-asc" | "priority" | "manual";
-}
-
 export interface ComponentConfiguration {
   componentId: EntityId;
   variant: string;
@@ -62,18 +47,6 @@ export interface ComponentConfiguration {
     hideOnMobile?: boolean;
     collapseOnMobile?: boolean;
   };
-}
-
-export interface SectionConfiguration {
-  sectionId: EntityId;
-  type: string;
-  enabled: boolean;
-  title?: string;
-  subtitle?: string;
-  variant: string;
-  layout: ResponsiveLayoutConfig;
-  filter?: SectionFilterConfig;
-  componentConfig: ComponentConfiguration;
 }
 
 export interface PortfolioConfiguration {
