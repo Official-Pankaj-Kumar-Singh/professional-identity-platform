@@ -575,7 +575,6 @@ export function validateConfiguration(input: ConfigurationValidationInput): Vali
   const validProfile = checkProfile(input.profile, platform, out);
   const validTheme = checkTheme(input.theme, platform, out);
   if (validProfession && validProfile && input.profile.primaryProfessionId !== input.profession.professionId) out.error("configuration.profession.mismatch", "profile.primaryProfessionId", "Selected profession must match the profile primary profession.");
-  if (validProfession && validTheme && !input.profession.recommendedThemes.includes(input.theme.themeId)) out.error("configuration.profession-theme.unrecommended", "theme.themeId", "Selected theme is not recommended by the selected profession.");
   if (validProfession && validProfile && validTheme && isRecord(input.portfolio) && isRecord(input.componentRegistry)) {
     checkPortfolio(input.portfolio, { platform, profession: input.profession, profile: input.profile, theme: input.theme, portfolio: input.portfolio as PortfolioConfiguration, componentRegistry: input.componentRegistry }, out);
     checkPayloadSize({ platform, profession: input.profession, profile: input.profile, theme: input.theme, portfolio: input.portfolio as PortfolioConfiguration, componentRegistry: input.componentRegistry }, out);
