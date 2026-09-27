@@ -1,4 +1,4 @@
-/** Public type exports for Theme Configuration (TF-06). */
+/** Public type exports for Theme Configuration (TF-07). */
 
 export type {
   ColorMode,
