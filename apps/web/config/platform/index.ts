@@ -17,6 +17,7 @@ export type {
   PlatformSectionTypeDescriptor,
   PlatformDefaultLayout,
   PlatformSecurityLimits,
+  AuditMetadata,
   SchemaVersion,
   EntityId,
 } from "./types";
