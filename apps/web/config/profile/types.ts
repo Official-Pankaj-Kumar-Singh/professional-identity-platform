@@ -8,21 +8,15 @@
  * preferences only. Biographical and career records belong to identity data.
  */
 
-import type { EntityId, SchemaVersion } from "../platform/types";
+import type { AuditMetadata, EntityId, SchemaVersion } from "../platform/types";
 import type { professionManifestCatalog } from "../profession";
+
+export type { AuditMetadata };
 
 type SupportedProfessionId = keyof typeof professionManifestCatalog;
 
 /** ISO 8601 UTC timestamp string, as specified by TF-02 §4. */
 export type ISOTimestamp = string;
-
-/** Provenance metadata shared by configuration documents. */
-export interface AuditMetadata {
-  createdAt: ISOTimestamp;
-  updatedAt: ISOTimestamp;
-  version: number;
-  source: "system" | "user" | "ai" | "admin";
-}
 
 /**
  * Layer 3 profile linkage and display configuration (TF-02 §7).

@@ -33,6 +33,14 @@ export type SchemaVersion = 1;
  */
 export type EntityId = string;
 
+/** Provenance and audit metadata shared across configuration layers (TF-02 §4). */
+export interface AuditMetadata {
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  source: "system" | "user" | "ai" | "admin";
+}
+
 // ---------------------------------------------------------------------------
 // Supported section type descriptor
 // ---------------------------------------------------------------------------
