@@ -6,10 +6,11 @@
  */
 
 import type { AuditMetadata, EntityId, SchemaVersion } from "../platform";
-import type { ColorMode, ComponentStyleConfiguration } from "../theme";
+import type { ColorMode } from "../theme";
 import type { SectionConfiguration } from "../section";
 
 export type { ResponsiveLayoutConfig, SectionConfiguration, SectionFilterConfig } from "../section";
+export type { ComponentConfiguration } from "../component";
 
 export interface NavigationLinkConfig {
   label: string;
@@ -36,17 +37,6 @@ export interface PortfolioSeoConfig {
   metaDescription?: string;
   ogImage?: string;
   noIndex?: boolean;
-}
-
-export interface ComponentConfiguration {
-  componentId: EntityId;
-  variant: string;
-  props: Record<string, boolean | number | string | string[]>;
-  styles: ComponentStyleConfiguration;
-  responsive: {
-    hideOnMobile?: boolean;
-    collapseOnMobile?: boolean;
-  };
 }
 
 export interface PortfolioConfiguration {

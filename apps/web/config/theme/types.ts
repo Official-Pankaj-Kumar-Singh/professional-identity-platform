@@ -9,6 +9,9 @@
  */
 
 import type { AuditMetadata, EntityId, SchemaVersion } from "../platform";
+import type { ComponentStyleConfiguration } from "../component";
+
+export type { ComponentStyleConfiguration } from "../component";
 
 /** Visual display mode shared by theme and portfolio configuration. */
 export type ColorMode = "light" | "dark" | "system";
@@ -82,15 +85,6 @@ export interface ThemeTokens {
     fast: string;
     normal: string;
   };
-}
-
-/** Declarative component styling defaults supported by the TF-02 schema. */
-export interface ComponentStyleConfiguration {
-  density: "compact" | "comfortable" | "spacious";
-  elevation: "none" | "subtle" | "medium" | "prominent";
-  borderStyle: "none" | "subtle" | "prominent";
-  accentHighlight: boolean;
-  customClassModifiers?: string[];
 }
 
 /** Reusable Layer 4 theme document (TF-02 §8). */

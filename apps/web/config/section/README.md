@@ -8,7 +8,7 @@ A portfolio is the Layer 5 configuration for a specific profile. Its `sections` 
 
 ## Component Configuration dependency
 
-`SectionConfiguration.componentConfig` uses the existing `ComponentConfiguration` contract from `config/portfolio/types.ts`. This keeps the section contract dependent on the established component identifier, variant, structured props, styles, and responsive settings without redefining or relocating that type.
+`SectionConfiguration.componentConfig` uses the `ComponentConfiguration` contract from `config/component/types.ts`. The Portfolio Configuration API continues to re-export this type for compatibility. Component identity, variant, structured props, styles, and responsive settings remain defined once in the component configuration package.
 
 ## Scope
 
