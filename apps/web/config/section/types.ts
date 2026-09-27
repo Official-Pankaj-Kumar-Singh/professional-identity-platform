@@ -6,7 +6,7 @@
  */
 
 import type { EntityId } from "../platform";
-import type { ComponentConfiguration } from "../portfolio/types";
+import type { ComponentConfiguration } from "../component";
 
 export interface ResponsiveLayoutConfig {
   containerWidth: "full" | "wide" | "standard" | "narrow";

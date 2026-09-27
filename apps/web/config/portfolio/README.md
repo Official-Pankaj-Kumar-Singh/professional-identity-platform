@@ -17,7 +17,7 @@ Portfolio Configuration describes how one portfolio presents identity data. Its 
 
 `ResponsiveLayoutConfig` defines container width, columns, alignment, and vertical padding across supported breakpoints. A section can also specify filters such as tags, featured-only display, item limits, or sort order.
 
-`ComponentConfiguration` identifies a component and variant, structured props, shared style settings, and optional responsive behavior. Component IDs and variants must correspond to approved platform capabilities. This configuration describes choices only; it does not implement or load components.
+`ComponentConfiguration` identifies a component and variant, structured props, shared style settings, and optional responsive behavior. Its source contract is in `config/component`; the Portfolio Configuration API re-exports it for compatibility. Component IDs and variants must correspond to approved platform capabilities. This configuration describes choices only; it does not implement or load components.
 
 ## Theme selection
 

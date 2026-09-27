@@ -4,7 +4,7 @@
 
 Theme configuration is Layer 4 in the TF-01 hierarchy, after platform, profession, and profile configuration and before portfolio configuration. The TF-02 §8 types live in `types.ts` and are exported from `index.ts`.
 
-`ThemeConfiguration` identifies a reusable theme, its author and base color mode, light tokens, optional partial dark tokens, optional component styling defaults, and audit metadata. `ThemeTokens` defines semantic colors, typography, spacing, radii, shadows, and transitions. `ComponentStyleConfiguration` follows the shared TF-02 shape used by component styles.
+`ThemeConfiguration` identifies a reusable theme, its author and base color mode, light tokens, optional partial dark tokens, optional component styling defaults, and audit metadata. `ThemeTokens` defines semantic colors, typography, spacing, radii, shadows, and transitions. `ComponentStyleConfiguration` follows the shared TF-02 shape defined in `config/component`; Theme Configuration continues to re-export it for compatibility.
 
 ## Relationships to other configuration layers
 
