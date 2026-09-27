@@ -1,254 +1,123 @@
 # Configuration Architecture
 
-> **Document Status**: Draft / Approved for Technical Foundation (TF-01)  
-> **Target Scope**: Multi-Profession AI-Powered Professional Identity Platform  
-> **Core Pipeline**: `Configuration → Resolution → Validation → Approved Components → Renderer`
+This guide describes the configuration contracts and operations implemented in `apps/web/config` through TF-17. The normative field-by-field schema is [Configuration Schema](./configuration-schema.md); TypeScript types and the module README files linked below are the source for current implementation behavior. This guide does not extend those contracts.
 
----
+## Purpose and scope
 
-## 1. Purpose
+Configuration is declarative data that selects and relates platform capabilities, profession defaults, profile presentation preferences, and portfolio presentation choices. The implementation provides TypeScript data contracts and focused, pure functions for defaults, resolution, validation, version semantics, plus interfaces for future persistence and API implementations. The contracts contain no React components or executable configuration payloads.
 
-The Professional Identity Platform is designed to support a vast spectrum of professions (e.g., Software Engineers, Physicians, Product Designers, Lawyers, Academics) and diverse presentation formats without creating separate applications or hard-coded pages for each domain.
+There is no portfolio renderer or configuration UI in this work. User override and AI proposal layers described in early TF-01 planning are not implemented configuration inputs. The component registry is a typed catalog contract, not a registry of rendered React implementations. Persistence and API modules define contracts only; there is no database, storage adapter, HTTP endpoint, authorization flow, or application orchestration.
 
-To achieve this scalability, the platform decouples:
-- **Professional Identity (Data)**: The normalized factual record of a user's career, education, skills, credentials, and achievements.
-- **Presentation (Configuration)**: Declarative specifications detailing layout structure, section ordering, visual styles, and component variant selections.
-- **Execution (Renderer & Component Registry)**: Statically typed, security-approved UI components that transform resolved configurations into web interfaces.
-
-This architecture enables:
-1. **Multi-Tenancy across Professions**: Supporting any profession via declarative configuration presets rather than customized codebases.
-2. **Dynamic Evolution**: Allowing users and AI agents to modify layout, styling, and tone without executing arbitrary or untrusted code.
-3. **Safe AI Iteration**: Constraining AI assistants to structured, schema-validated configuration mutations.
-
----
-
-## 2. Architectural Principles
-
-### 2.1 The Core Execution Pipeline
-
-The runtime flow strictly enforces a unidirectional pipeline:
-
-```mermaid
-flowchart LR
-    A["Raw Configurations<br/>(Platform, Profession, User, AI)"] --> B["Resolution Engine<br/>(Deterministic Overlay)"]
-    B --> C["Validation Gate<br/>(Strict Schema / Invariants)"]
-    C --> D["Component Registry<br/>(Approved Static Whitelist)"]
-    D --> E["Portfolio Renderer<br/>(Safe Tree Assembly)"]
-```
-
-1. **Configuration**: Layered declarative specifications stored as structured JSON.
-2. **Resolution**: Deterministic hierarchical merging of defaults, profile choices, user overrides, and AI suggestions.
-3. **Validation**: Runtime schema verification (e.g., Zod / JSON Schema) ensuring data integrity, type safety, and domain constraints.
-4. **Approved Components**: Whitelisted, pre-compiled UI building blocks located in the codebase.
-5. **Renderer**: A secure rendering engine that hydrates approved components with resolved data.
-
-### 2.2 Core Invariants
-- **Structured Data Only**: Configuration must consist exclusively of declarative data (primitives, arrays, and objects). No executable JavaScript, TypeScript, JSX, or arbitrary CSS strings may ever exist within configuration payloads.
-- **Fail-Safe Fallbacks**: If any user override or AI adjustment is invalid or unsupported, resolution gracefully falls back to the profession or platform default.
-- **Immutable Inputs**: Each layer remains pure and untouched; resolution produces a new, immutable resolved document.
-- **Zero Remote Code Execution (RCE)**: The renderer will never use `eval()`, `new Function()`, or dynamic remote script injection.
-
----
-
-## 3. Configuration Layers
-
-The configuration system is divided into eight discrete layers, evaluated in order of precedence:
+## Implemented architecture
 
 ```mermaid
 flowchart TD
-    L1["1. Platform Defaults"]
-    L2["2. Profession Defaults"]
-    L3["3. Profile Configuration"]
-    L4["4. Theme Defaults"]
-    L5["5. Portfolio Configuration"]
-    L6["6. User Overrides"]
-    L7["7. AI Changes"]
-    L8["8. Final Resolved Configuration"]
-
-    L1 --> L2
-    L2 --> L3
-    L3 --> L4
-    L4 --> L5
-    L5 --> L6
-    L6 --> L7
-    L7 --> L8
+  P[PlatformConfiguration<br/>Layer 1] --> F[ProfessionManifest<br/>Layer 2]
+  F --> PR[ProfileConfiguration<br/>Layer 3]
+  P --> TH[ThemeConfiguration<br/>Layer 4]
+  F --> PO[PortfolioConfiguration<br/>Layer 5]
+  PR --> PO
+  TH --> PO
+  PO --> SC[Sections and ComponentConfiguration<br/>nested in Layer 5]
+  CR[ComponentRegistry catalog<br/>TF-10 contract] --> D[Defaults<br/>TF-13]
+  P --> D
+  F --> D
+  PR --> D
+  TH --> D
+  PO --> D
+  D --> V[Validation<br/>TF-12]
+  CR --> V
+  D --> R[Resolution<br/>TF-11]
+  P --> R
+  F --> R
+  PR --> R
+  TH --> R
+  PO --> R
+  V -. caller-controlled gate .-> R
+  V --> API[API contract<br/>TF-16]
+  VER[Versioning<br/>TF-14] --> PER[Persistence contract<br/>TF-15]
+  API --> PER
+  TEST[Node test suite<br/>TF-17] -. tests contracts and operations .-> V
 ```
 
-1. **Platform Defaults**: System-wide baseline settings, default capabilities, standard fallback components, and global metadata schemas.
-2. **Profession Defaults**: Archetypal templates tailored to specific professions (e.g., medical vs. engineering vs. creative portfolios).
-3. **Profile Configuration**: Core user identity attributes, selected primary profession, active credentials, and profile-level visibility switches.
-4. **Theme Defaults**: Prescribed aesthetic token suites (typography scale, spacing system, color palettes, elevation, radius).
-5. **Portfolio Configuration**: Instance-level portfolio layout choices (chosen theme ID, selected sections, canonical ordering, display variants).
-6. **User Overrides**: Explicit manual fine-tuning performed by the user (custom section labels, specific color overrides, custom ordering).
-7. **AI Changes**: Structured proposals and mutations generated by AI assistants (suggested section reordering, tone/emphasis adjustments, headline copy refinement).
-8. **Final Resolved Configuration**: The fully compiled, validated, immutable JSON document ingested by the renderer.
+The arrows between source configuration types indicate references and inputs, not automatic execution. Callers select matching platform, profession, profile, theme, portfolio, and registry values and choose when to call defaults, validation, resolution, versioning, and future persistence/API adapters. The pure resolver does not call validation; validation and resolution are separate operations. The API and persistence boxes are contracts and do not run as services.
 
----
+## Configuration layers and relationships
 
-## 4. Responsibility and Boundaries of Each Layer
+The five configuration layers are the implemented data model. Layer 5 is the portfolio document, and section and component settings are nested within it rather than additional precedence layers. Theme and profession are separate referenced documents; the resolver and defaults operation accept them explicitly.
 
-| Layer | Primary Responsibilities | Allowed Data | Prohibited Data |
-| :--- | :--- | :--- | :--- |
-| **1. Platform Defaults** | Defines absolute system fallbacks, supported core section types, global security restrictions, and fallback tokens. | Supported section types, default component identifiers, platform metadata. | User-specific data, profession-specific opinions, custom inline scripts. |
-| **2. Profession Defaults** | Defines recommended section suites, vocabulary labels, default section order, and primary tone suited to a domain. | Standard section order for profession, domain-specific terminology, recommended theme IDs. | Direct user personal data, unapproved third-party component references. |
-| **3. Profile Configuration** | Links the individual to their identity data, profession choice, and data-level flags. | Profession identifier, active contact handles, credential visibility flags. | Layout styles, component DOM attributes, direct CSS values. |
-| **4. Theme Defaults** | Establishes coherent design token systems for visual balance. | Color palettes (hex/oklch tokens), typography scales, spacing units, border radius tokens. | Content copy, profile experience items, section ordering. |
-| **5. Portfolio Configuration** | Organizes how a specific portfolio presents identity data. | Active section list, section variant mappings, theme selection, navigation style. | Direct executable logic, raw unparsed stylesheets. |
-| **6. User Overrides** | Preserves intentional manual user customisations. | Keyed overrides of labels, token values within bounds, section visibility toggles. | Overriding system security rules, injection of arbitrary markup. |
-| **7. AI Changes** | Applies AI-assisted enhancements and personalized layouts. | Structured delta patches matching the AI Delta Schema (section re-weighting, copy proposals). | Free-form HTML/code, direct database modifications, security bypasses. |
-| **8. Final Resolved Config** | Serves as the complete runtime input contract for the portfolio renderer. | Flattened, fully resolved tree of sections, props, and design tokens ready for execution. | Unresolved template variables, merge conflicts, pending validation flags. |
+| Layer | Contract | Role and relationship |
+| --- | --- | --- |
+| 1 | [Platform Configuration](../../apps/web/config/platform/README.md) | Static platform catalog, supported professions and section types, shipped theme IDs, default component mappings, and security limits. |
+| 2 | [Profession Manifest](../../apps/web/config/profession/README.md) | Profession-specific available sections, default order, vocabulary, recommended/default themes, highlighted attributes, and SEO defaults. References Layer 1 catalogs. |
+| 3 | [Profile Configuration](../../apps/web/config/profile/README.md) | Identity linkage and presentation/visibility settings, including profession IDs. It is not the store of biographical or career records. |
+| 4 | [Theme Configuration](../../apps/web/config/theme/README.md) | Semantic visual tokens and optional per-component style defaults. A portfolio selects a theme by ID. |
+| 5 | [Portfolio Configuration](../../apps/web/config/portfolio/README.md) | Portfolio identity, profile and theme references, navigation, ordered section IDs, section configurations, footer, SEO, color mode, and audit metadata. |
 
----
+`SectionConfiguration` is a Layer 5 member selected by `sectionOrder`; it carries enabled state, optional title/subtitle and filter, layout, variant, and a `componentConfig`. That member uses the existing [Component Configuration](../../apps/web/config/component/README.md) contract, which names a component ID and variant and carries typed props, style settings, and responsive flags. Component Configuration is a dependency of section and portfolio contracts, not a second competing system.
 
-## 5. Configuration Precedence & Resolution Pipeline
+Profession manifests provide defaults and allowed section choices, while a profile links the portfolio to a professional identity and chosen profession. A portfolio references a theme and arranges its selected sections. The platform catalog constrains the IDs and supported capabilities. These types describe relationships; they do not load referenced documents or guarantee their coherence by themselves.
 
-### 5.1 Precedence Rules
+## Component registry
 
-Precedence flows from **least specific (Platform Defaults)** to **most specific (AI / User Overrides)**:
+The [Component Registry](../../apps/web/config/component/README.md) module defines `ComponentDescriptor` and `ComponentRegistry` catalog types. TF-10 supplies a typed catalog used by validation and defaults. In the current source there are no concrete component render implementations and no runtime lookup or rendering registry. Describing a catalog must not be read as implementing component rendering.
 
-$$\text{Platform Defaults} \prec \text{Profession Defaults} \prec \text{Profile Config} \prec \text{Theme Defaults} \prec \text{Portfolio Config} \prec \text{User Overrides} \prec \text{AI Changes}$$
+## Distinct configuration operations
 
-*Note on AI Changes vs. User Overrides*: When an AI proposes changes in interactive editing mode, changes can exist as a preview layer on top of User Overrides. Once accepted by the user, AI adjustments commit into User Overrides or Portfolio Configuration.
+These modules have separate responsibilities and are not a generic configuration manager:
 
-### 5.2 Resolution Strategy
+| Concern | Implemented behavior | Module |
+| --- | --- | --- |
+| Defaults | `applyConfigurationDefaults` prepares a new partial portfolio draft. It fills only omitted (`undefined`) values from explicitly supplied sources, preserves explicit values even when invalid, and reports applied defaults and unresolved paths. | [TF-13](../../apps/web/config/defaults/README.md) |
+| Validation | `validateConfiguration` checks an explicitly selected configuration set and registry, returning `{ valid, issues }` with severity, code, path, and message. It is read-only and does not repair or default values. | [TF-12](../../apps/web/config/validation/README.md) |
+| Resolution | `resolvePortfolioConfiguration` composes explicitly supplied valid/coherent source objects into the TF-02 resolved shape. Portfolio `sectionOrder` determines order; disabled sections are omitted; titles and styles use documented fallbacks/overlays; nested output values are copied. It assumes, but does not perform, validation. | [TF-11](../../apps/web/config/resolution/README.md) |
+| Versioning | Reads supported schema/revision metadata and creates a copied next revision using an explicit timestamp. It does not migrate schemas, validate the full configuration, or persist it. | [TF-14](../../apps/web/config/versioning/README.md) |
+| Persistence | Defines generic create/get/exists/update repository contracts, including identity and optimistic revision conflict semantics. It has no storage adapter. | [TF-15](../../apps/web/config/persistence/README.md) |
+| API | Defines transport-neutral create/get/update request and structured response/error contracts. It has no routes, handlers, orchestration, or client. | [TF-16](../../apps/web/config/api/README.md) |
 
-1. **Primitive Values**: Last writer wins (shallow scalar replacement).
-2. **Token Maps & Style Dictionaries**: Deep merge on matching keys.
-3. **Sections & Component Lists**: Keyed resolution based on stable `sectionId`:
-   - Sections present in lower layers are inherited.
-   - If an override specifies `enabled: false`, the section is omitted.
-   - Ordering is determined by the highest-precedence layer that explicitly defines `sectionOrder`.
-4. **Validation Checkpoint**:
-   - The resolved configuration must strictly conform to `ResolvedPortfolioConfigSchema`.
-   - Any property failing validation triggers a fallback for that subtree to the nearest valid lower-precedence default.
+Defaults do not invoke validation or resolution. Validation does not invoke resolution. Resolution expects selected inputs and is not an implicit API or persistence step. Future orchestration must choose the order and handle each result explicitly. For instance, a caller preparing a draft can apply defaults and then validate once enough required values exist; any later resolution call remains explicit.
 
----
+## Version concepts
 
-## 6. Configuration → Component Mapping
+Four values have different meanings and must not be interchanged:
 
-The rendering layer never accepts component definitions over the wire. Instead, it relies on a compile-time **Component Registry**.
+| Field or constant | Meaning |
+| --- | --- |
+| `schemaVersion` | Structure of a configuration document. The current supported schema version is the literal `1`; TF-14 compatibility currently requires supported, equal schema versions. No migration pipeline exists. |
+| `audit.version` (`AuditMetadata.version`) | Revision number of an individual audited Profile, Theme, or Portfolio document. TF-14 increments it when explicitly asked to create a next revision. |
+| `PlatformConfiguration.metadata.version` | Version string of the platform configuration bundle. Platform Configuration does not use `AuditMetadata` and this is not a per-document revision. |
+| `ConfigurationApiContractVersion` | Literal `1` for the TF-16 TypeScript API contract shape. It is not an HTTP URL/header strategy, schema version, or configuration revision. |
 
-```mermaid
-flowchart TD
-    subgraph Resolved_Configuration["Resolved Configuration"]
-        S1["Section: experience<br/>Variant: timeline<br/>Props: {...}"]
-    end
+`resolvedAt` is a caller-supplied resolution timestamp. It is not a revision and does not increment any audit field. Defaults do not change audit metadata.
 
-    subgraph Component_Registry["Component Registry (Approved Catalog)"]
-        direction TB
-        R1["experience:timeline -> &lt;TimelineExperience /&gt;"]
-        R2["experience:cards -> &lt;CardExperience /&gt;"]
-        R3["projects:grid -> &lt;ProjectGrid /&gt;"]
-    end
+## Testing
 
-    subgraph Renderer["Portfolio Renderer"]
-        LOOKUP["Lookup (section.type, section.variant)"]
-        RENDER["Hydrate with Sanitized Data & Tokens"]
-    end
+The dedicated suite is in [`apps/web/config-tests`](../../apps/web/config-tests/configuration.test.ts), with shared input data in [`fixtures.ts`](../../apps/web/config-tests/fixtures.ts). It uses Node's built-in `node:test` and `node:assert/strict` runner, so it adds no testing dependency. From `apps/web`, run:
 
-    S1 --> LOOKUP
-    LOOKUP --> Component_Registry
-    Component_Registry --> RENDER
+```sh
+npm test
 ```
 
-### 6.1 The Component Registry
-- A centralized dictionary registering statically imported, tested, and secure UI components.
-- Each registry entry specifies:
-  - `componentId`: Unique identifier (e.g., `experience:timeline`).
-  - `propsSchema`: Validation contract for props passed to this component.
-  - `slots`: Supported sub-component slots (if composite).
-  - `defaultVariant`: Fallback variant if the requested one is absent.
+The package script compiles the test TypeScript with `tsconfig.config-tests.json` into the ignored `.next/config-test-build` directory and runs the compiled test file with `node --test`. The suite currently has 17 tests across seven areas: source catalogs and type relationships, resolution, validation, defaults, versioning, an in-memory test adapter for persistence contract semantics, and API request/error contracts. The in-memory adapter is test-only and is not a production persistence implementation.
 
-### 6.2 Safe Hydration Process
-1. Renderer walks the resolved `sections` array in order.
-2. For each section, reads `type` and `variant`.
-3. Looks up the matching component in the Component Registry:
-   - If found: renders `<ApprovedComponent {...sanitizedProps} />`.
-   - If missing/unsupported: logs a warning and falls back to `registry.getDefault(section.type)`.
+## Extension guidance
 
----
+Make changes at the owning contract and keep source types authoritative:
 
-## 7. Profession-Specific Configuration Approach
+1. **Add a configuration type:** first update the relevant section of [the schema](./configuration-schema.md), then add a declarative type in the matching `apps/web/config/<layer>/types.ts`, export it through that module's `index.ts`, and document actual semantics in its README. Reuse shared identifiers, audit metadata, schema versions, and referenced types; do not duplicate them.
+2. **Add a profession manifest:** implement `ProfessionManifest` in `config/profession/manifests`, export/register it in the profession catalog, and ensure its IDs, sections, variants, and theme choices exist in platform catalogs. Extend fixtures/tests for catalog relationships.
+3. **Add a section:** select a platform-supported section type and represent it as a `SectionConfiguration` nested in a `PortfolioConfiguration`; include its ID in portfolio order as appropriate. Its `componentConfig` must use the existing `ComponentConfiguration` type. Current contracts do not add a renderer.
+4. **Add a component:** update the declarative component/catalog contract as required and update relevant fixtures and validation expectations. The current registry types do not register executable UI components; implementing rendering is separate work.
+5. **Add a theme:** add a `ThemeConfiguration`, ensure its `themeId` is included in platform support, and update any profession recommendation/default references and tests.
+6. **Add validation rules:** extend the owning TF-12 validation function with stable issue code/path/message semantics, keep validation read-only, and add valid and invalid cases in the configuration suite.
+7. **Add defaults:** extend TF-13 with explicit sources and precedence, only fill omitted values unless its documented contract is intentionally revised, report unresolved required values, and test immutability and explicit-value preservation.
+8. **Work with revisions:** use TF-14 helpers with an explicit UTC `updatedAt`; preserve `schemaVersion` for ordinary edits. Schema migrations are not implemented, so a schema change requires separate migration design.
+9. **Implement persistence:** implement `ConfigurationRepository<T>` in a separate adapter, honor stable identity, copying/serialization requirements, duplicate behavior, and atomic optimistic compare-and-replace via TF-14. Select the provider and transaction mechanism in that future task; do not infer one from this interface.
+10. **Consume the API contract:** use TF-16 request/response and error unions in a future transport/application layer, map validation issues and persistence version conflicts to their existing structured errors, and keep API contract version separate from document versions. No HTTP endpoint or orchestration is currently provided.
+11. **Add tests:** extend `config-tests/configuration.test.ts` and shared fixtures, using the existing `npm test` command and built-in Node runner.
 
-Instead of branching codebase logic or hosting separate Next.js applications for different professions, profession customization is managed entirely via **Profession Manifests**.
+Changes to public shape should be reflected in both the normative schema and the owning module documentation. Avoid creating parallel registries, version fields, validation models, or duplicate architecture guides.
 
-### 7.1 Architecture of a Profession Manifest
+## Explicit implementation boundaries
 
-A profession configuration defines:
-1. **Default Section Layout**:
-   - *Software Engineer*: Hero → Tech Stack → Projects & Repositories → Experience → Open Source.
-   - *Academic / Researcher*: Hero → Biography → Publications & Papers → Research Interests → Teaching → Grants.
-   - *Physician / Clinician*: Hero → Credentials & Board Certifications → Clinical Specializations → Hospital Affiliations → Education & Residency.
-   - *Designer*: Hero → Visual Case Studies → Selected Works → Design Philosophy → Experience.
-2. **Vocabulary Overrides**:
-   - Customizing labels without altering data models (e.g., "Experience" is labeled "Clinical Rotations" for medical interns, "Exhibitions" for fine artists).
-3. **Curated Theme Presets**:
-   - Suggesting default themes matched to domain expectations (e.g., authoritative/clean for medical/legal; expressive/grid-based for creative professions).
-
----
-
-## 8. AI Interaction Boundaries
-
-AI capabilities in the platform must act as intelligent **assistants within boundaries**, not unbounded code generators.
-
-### 8.1 Boundaries and Constraints
-- **Structured Deltas Only**: AI inputs and outputs are restricted to JSON delta patches that validate against an explicit `AIDeltaPatchSchema`.
-- **No Direct Code Generation**: AI cannot generate JSX, React components, CSS files, or executable scripts.
-- **No Unauthorized Scope Access**: AI changes cannot alter account ownership, security settings, subscription tiers, or bypass validation rules.
-- **Drafting and Reversibility**: AI recommendations are treated as staged modifications. Users can preview diffs, accept individual changes, or discard them entirely.
-
----
-
-## 9. Security Constraints
-
-1. **Content Security Policy (CSP) Alignment**:
-   - Zero inline script execution.
-   - Inline style attributes are restricted to safe CSS variable bindings derived from approved theme tokens.
-2. **Prototype Pollution Protection**:
-   - Deep merge functions in the resolution engine must sanitize reserved keys (`__proto__`, `constructor`, `prototype`).
-3. **HTML Sanitization**:
-   - Any user-provided or AI-refined text field that supports formatted text (e.g., Markdown) must pass through a strict sanitizer disallowing script tags, iframes, and arbitrary event handlers.
-4. **No Dynamic Code Evaluation**:
-   - Disallow `eval`, `Function()`, `dangerouslySetInnerHTML` with raw configuration input, or dynamic script loading.
-
----
-
-## 10. Extensibility Principles
-
-- **Adding a New Profession**: Create a new declarative profession descriptor JSON/object containing default sections, labels, and theme mappings. Zero renderer code changes needed.
-- **Adding a New Theme**: Add a design token preset JSON/object conforming to the `ThemeTokensSchema`.
-- **Adding a New Component or Variant**:
-  1. Build and unit-test the React component in the approved component library.
-  2. Register the component in the Component Registry with its `propsSchema`.
-  3. Expose the new `variant` key in the configuration schema.
-- **Schema Versioning**: Every configuration document maintains a `schemaVersion` integer. A schema migration pipeline will handle upgrading legacy configurations when schemas evolve.
-
----
-
-## 11. Future Dependencies
-
-*Note: For TF-01, these dependencies are documented for roadmap planning and are NOT installed or built at this stage.*
-
-1. **Schema Validation**: [Zod](https://zod.dev) (or equivalent standard schema validator) for strict runtime parsing and TypeScript type inference.
-2. **Shared Configuration Package**: A standalone package (e.g., `packages/config` or `packages/core`) containing schemas, default manifests, and pure resolution functions reusable across web and API applications.
-3. **Deep Merge Utility**: A deterministic, prototype-safe object merger.
-4. **Sanitization Engine**: A lightweight HTML/Markdown sanitizer (e.g., DOMPurify or sanitize-html) for formatted text fields.
-
----
-
-## 12. Open Architectural Decisions
-
-The following architectural questions are identified during TF-01 for resolution in upcoming technical foundation tasks:
-
-1. **Array Resolution Semantics**:
-   - *Question*: When a higher-precedence layer specifies an array (e.g., `sections`), does it replace the array entirely, or perform a keyed merge based on a unique identifier (e.g., `sectionId`)?
-   - *Initial Preference*: Keyed merge with explicit ordering array (`sectionOrder: ["hero", "projects", "experience"]`) to prevent unintentional loss of default section settings when overriding order.
-2. **AI Changes Persistence Model**:
-   - *Question*: Should AI changes persist as a dedicated layer in the database, or should they immediately fold into `User Overrides` once accepted by the user?
-   - *Trade-off*: A dedicated AI layer allows detailed version history and undo/redo of AI suggestions, but increases database schema complexity and resolution overhead.
-3. **Resolution Location (Server vs. Client)**:
-   - *Question*: Should configuration resolution occur strictly on the server during data fetching/SSR, or also client-side in the portfolio customizer?
-   - *Trade-off*: Pure server-side resolution maximizes security and performance for public portfolios; dual client/server resolution enables instantaneous real-time previews during editing.
-4. **Theme Token Abstraction Level**:
-   - *Question*: Should theme tokens map directly to Tailwind CSS utility classes / CSS custom properties, or remain completely abstract semantic tokens (e.g., `surface.primary`, `accent.vibrant`)?
-   - *Initial Preference*: Abstract semantic CSS custom properties mapped to Tailwind classes for flexibility and consistency.
+The current configuration architecture does not implement rendering, a configuration resolver/validator service, default persistence, database or ORM, HTTP API, API client, authentication or authorization, editor or runtime behavior, migrations, user overrides, AI change proposals, remote code loading, or a production component registry. These may be considered in future work, but the current contracts do not imply their existence.
