@@ -1,4 +1,6 @@
 export { createAccountService } from "./create-account";
+export { validateRegistration } from "./registration-validation";
+export type { RegistrationField, RegistrationValidationIssue, RegistrationValidationResult } from "./registration-validation";
 export type {
   Account,
   AccountCreationDependencies,

@@ -5,6 +5,7 @@ import type {
   AccountCreationResult,
   RegistrationInput,
 } from "./types";
+import { validateRegistration } from "./registration-validation";
 
 const invalidInput = (): AccountCreationError => ({
   code: "invalid-input",
@@ -42,10 +43,11 @@ export function createAccountService(dependencies: AccountCreationDependencies):
     async create(input: RegistrationInput): Promise<AccountCreationResult> {
       if (!isRegistrationInput(input)) return { ok: false, error: invalidInput() };
 
-      const email = input.email.trim().toLowerCase();
-      if (email.length === 0 || input.password.length === 0) {
-        return { ok: false, error: invalidInput() };
+      if (!validateRegistration(input).ok) {
+        return { ok: false, error: { code: "invalid-input", message: "Check the registration details and try again." } };
       }
+
+      const email = input.email.trim().toLowerCase();
 
       try {
         const existing = await dependencies.repository.existsByEmail(email);
