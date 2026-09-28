@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import "./account-creation.test";
 import type { ConfigurationApiError, ConfigurationApiRequest, ConfigurationApiResponse } from "../config/api";
 import type { ConfigurationRepository, ConfigurationUpdate } from "../config/persistence";
 import { applyConfigurationDefaults } from "../config/defaults";
