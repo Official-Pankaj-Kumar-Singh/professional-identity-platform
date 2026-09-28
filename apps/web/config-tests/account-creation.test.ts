@@ -127,3 +127,43 @@ describe("account creation service (Task #94)", () => {
     if (!result.ok) assert.equal(result.error.code, "already-exists");
   });
 });
+
+describe("registration identity uniqueness (US-03)", () => {
+  it("maps an atomic uniqueness conflict to the same non-disclosing response", async () => {
+    const fixture = createFixture({ created: { ok: false, issue: { code: "already-exists" } } });
+    const result = await fixture.service.create({ email: "person@example.com", password: rawPassword });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.code, "already-exists");
+      assert.equal(result.error.message, "An account could not be created with these details.");
+      assert.equal(result.error.message.includes("person@example.com"), false);
+    }
+  });
+
+  it("allows only one concurrent create when the repository enforces atomic uniqueness", async () => {
+    const records = new Map<string, NewAccountRecord>();
+    const dependencies: AccountCreationDependencies = {
+      repository: {
+        async existsByEmail(email) { return { ok: true, value: records.has(email) }; },
+        async create(record) {
+          if (records.has(record.account.email)) return { ok: false, issue: { code: "already-exists" } };
+          records.set(record.account.email, record);
+          return { ok: true, value: record.account };
+        },
+      },
+      passwordHasher: { async hash() { return { ok: true, passwordHash: "salted-hash" }; } },
+      createAccountId: (() => { let id = 0; return () => `account-${++id}`; })(),
+      now: () => "2026-09-28T00:00:00Z",
+    };
+    const service = createAccountService(dependencies);
+    const results = await Promise.all([
+      service.create({ email: "person@example.com", password: rawPassword }),
+      service.create({ email: " PERSON@example.com ", password: rawPassword }),
+    ]);
+    assert.equal(results.filter(result => result.ok).length, 1);
+    assert.equal(records.size, 1);
+    const duplicate = results.find(result => !result.ok);
+    assert.ok(duplicate && !duplicate.ok);
+    if (duplicate && !duplicate.ok) assert.equal(duplicate.error.code, "already-exists");
+  });
+});

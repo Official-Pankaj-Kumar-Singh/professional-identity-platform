@@ -14,7 +14,9 @@ The caller supplies the repository, password-hashing implementation, account ID 
 
 ## Validation and neighboring stories
 
-The service rejects missing/empty email or password values. It does not implement email-format checks or password-strength policy; those rules and their field feedback belong to US-02. It normalizes email identity, checks for an existing account, and handles the repository's atomic `already-exists` result; broader duplicate-account behavior belongs to US-03.
+The service validates required fields, basic email format, and the minimum password length independently of the UI. It normalizes email identity, checks for an existing account, and handles the repository's atomic `already-exists` result; broader duplicate-account behavior belongs to US-03.
+
+`validateRegistration` is the shared server-side validator: email must have a basic address shape and passwords must contain at least 12 characters. This minimum is a baseline for this flow, not a complete password policy review. The registration form mirrors the same rules, but the application service validates independently. The form accepts an injected submit operation for tests and integration. The current `/register` route intentionally fails closed because no persistent repository or reviewed password hasher has been configured; it does not report a successful account creation.
 
 No professional profile fields are part of account registration. Account creation does not log in the user or create a session.
 
