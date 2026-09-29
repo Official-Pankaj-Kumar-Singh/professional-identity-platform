@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { RegistrationForm } from "./registration-form";
 
@@ -8,7 +10,7 @@ export default function RegisterPage() {
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
       <p className="mt-2 text-slate-600">Start your professional identity journey.</p>
       <RegistrationForm onSubmit={async (values) => {
-        const response = await fetch("/register", {
+        const response = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(values),
