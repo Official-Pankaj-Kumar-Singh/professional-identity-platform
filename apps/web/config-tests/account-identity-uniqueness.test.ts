@@ -79,6 +79,7 @@ describe("account identity uniqueness across requests (Task #100)", () => {
     } finally {
       resetAccountComposition();
     }
+  });
 
   it("rejects a second request that differs only in surrounding whitespace", async () => {
     const composition = createAccountComposition();
@@ -144,5 +145,3 @@ describe("account identity uniqueness across requests (Task #100)", () => {
     }
   });
 });
-
-  });
