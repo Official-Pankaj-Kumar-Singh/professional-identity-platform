@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import "./account-creation.test";
+import "./account-identity-uniqueness.test";
 import "./account-persistence.test";
 import "./account-management.test";
 import "./auth-credential.test";

@@ -25,3 +25,4 @@ export { AccountWriteLock } from "./lock";
 export type { AccountPersistence } from "./persistence";
 export { createAccountPersistence } from "./persistence";
 export { createAccountComposition, type AccountComposition } from "./composition";
+export { getAccountComposition, resetAccountComposition, setAccountComposition } from "./application";
