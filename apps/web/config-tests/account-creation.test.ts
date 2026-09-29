@@ -86,7 +86,10 @@ describe("account creation service (Task #94)", () => {
     const result = await fixture.service.create({ email: " PERSON@example.com ", password: rawPassword });
 
     assert.equal(result.ok, false);
-    assert.equal(fixture.hashCalls, 0);
+    // Task #101: the duplicate path now hashes once, matching the cost of a
+    // first-time registration, so response timing cannot disclose that the
+    // identity is already registered. No record is written either way.
+    assert.equal(fixture.hashCalls, 1);
     assert.equal(fixture.records.length, 0);
     if (!result.ok) {
       assert.equal(result.error.code, "already-exists");
@@ -165,5 +168,52 @@ describe("registration identity uniqueness (US-03)", () => {
     const duplicate = results.find(result => !result.ok);
     assert.ok(duplicate && !duplicate.ok);
     if (duplicate && !duplicate.ok) assert.equal(duplicate.error.code, "already-exists");
+  });
+});
+
+describe("duplicate registration safety (Task #101)", () => {
+  it("does the same expensive work whether or not the identity is already registered", async () => {
+    // The non-disclosing message is only meaningful if the response does not leak
+    // the same fact some other way. Hashing cost is used here as the deterministic
+    // stand-in for elapsed time: a wall-clock assertion would be flaky, but the
+    // number of scrypt operations is an exact proxy for how much work the caller
+    // made an attacker pay to distinguish the two outcomes.
+    const firstTime = createFixture();
+    const alreadyRegistered = createFixture({ exists: { ok: true, value: true } });
+
+    const created = await firstTime.service.create({ email: "person@example.com", password: rawPassword });
+    const duplicate = await alreadyRegistered.service.create({ email: "person@example.com", password: rawPassword });
+
+    assert.equal(created.ok, true);
+    assert.equal(duplicate.ok, false);
+    assert.equal(firstTime.hashCalls, alreadyRegistered.hashCalls);
+    assert.equal(alreadyRegistered.hashCalls, 1);
+  });
+
+  it("creates no second account and keeps the duplicate message non-disclosing", async () => {
+    const fixture = createFixture({ exists: { ok: true, value: true } });
+    const result = await fixture.service.create({ email: " PERSON@Example.com ", password: rawPassword });
+
+    assert.equal(fixture.records.length, 0);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.code, "already-exists");
+      assert.equal(result.error.message, "An account could not be created with these details.");
+      assert.equal(result.error.message.includes("person@example.com"), false);
+      assert.equal(result.error.message.toLowerCase().includes("already"), false);
+      assert.equal(result.error.message.toLowerCase().includes("exists"), false);
+      assert.equal(result.error.message.toLowerCase().includes("registered"), false);
+    }
+  });
+
+  it("still rejects malformed input without paying the hashing cost", async () => {
+    // Timing parity applies to the duplicate path only. Invalid input carries no
+    // information about whether an account exists, so it still short-circuits.
+    const fixture = createFixture({ exists: { ok: true, value: true } });
+    const result = await fixture.service.create({ email: "  ", password: rawPassword });
+
+    assert.equal(result.ok, false);
+    assert.equal(fixture.hashCalls, 0);
+    assert.equal(fixture.records.length, 0);
   });
 });
