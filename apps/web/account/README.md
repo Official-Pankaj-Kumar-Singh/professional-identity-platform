@@ -12,14 +12,26 @@ This module defines the account identity, registration input, credential, reposi
 
 The caller supplies the repository, password-hashing implementation, account ID generator, and clock. The clock must return an ISO 8601 UTC timestamp. This reuses the application's existing injection-oriented, storage-agnostic contract style without choosing new ID or persistence infrastructure.
 
+## Production infrastructure
+
+Concrete implementations live alongside the contracts:
+
+- `account/repository.ts` — `InMemoryAccountRepository` with a shared `AccountWriteLock` so concurrent registration attempts for the same normalized email cannot both succeed.
+- `account/persistence.ts` — `createAccountPersistence` coordinates the account and credential stores behind one lock so an account and its credential are stored atomically.
+- `account/composition.ts` — `createAccountComposition` wires the service to the production repository, an `ScryptPasswordHasher`, a UUID-based account ID generator, and the system clock.
+- `auth/password-hasher.ts` — `ScryptPasswordHasher` / `ScryptPasswordVerifier` backed by `node:crypto.scrypt`. Hashes are self-describing (`$scrypt$<logN>$<r>$<p>$<salt>$<hash>`) so verification can reuse the original work factor.
+- `auth/credential-repository.ts` — `InMemoryAccountCredentialRepository` for the sign-in lookup boundary.
+
+No password hashing library or third-party dependency is introduced; `node:crypto` ships with Node and provides a vetted, parameterized scrypt implementation. A production deployment should later swap the in-memory stores for a real database with a unique constraint on normalized email.
+
 ## Validation and neighboring stories
 
 The service validates required fields, basic email format, and the minimum password length independently of the UI. It normalizes email identity, checks for an existing account, and handles the repository's atomic `already-exists` result; broader duplicate-account behavior belongs to US-03.
 
-`validateRegistration` is the shared server-side validator: email must have a basic address shape and passwords must contain at least 12 characters. This minimum is a baseline for this flow, not a complete password policy review. The registration form mirrors the same rules, but the application service validates independently. The form accepts an injected submit operation for tests and integration. The current `/register` route intentionally fails closed because no persistent repository or reviewed password hasher has been configured; it does not report a successful account creation.
+`validateRegistration` is the shared server-side validator: email must have a basic address shape and passwords must contain at least 12 characters. This minimum is a baseline for this flow, not a complete password policy review. The registration form mirrors the same rules, but the application service validates independently. The form accepts an injected submit operation for tests and integration. The `/register` route validates again server-side and persists through the production composition layer.
 
 No professional profile fields are part of account registration. Account creation does not log in the user or create a session.
 
 ## Security and production integration
 
-No password hashing library or implementation exists in this repository. The service requires an injected `PasswordHasher` that returns a salted, non-reversible hash, rejects empty hashes and a hash identical to the raw password, and never returns credential material. The repository receives only the hash, not the raw password. A production composition layer must select and review the hashing implementation and supply a persistent repository whose uniqueness constraint is atomic before registration can be enabled. No database, ORM, schema, migration, or dependency is introduced here.
+Password hashing uses scrypt with a random per-hash salt and constant-time verification. The repository receives only the hash, not the raw password. The public account result never contains credential material, and duplicate-registration responses never disclose the email. A shared write lock guarantees that concurrent registration attempts for the same identity cannot create two accounts until a real database unique constraint is introduced.

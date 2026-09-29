@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import "./account-creation.test";
+import "./account-persistence.test";
+import "./account-management.test";
 import "./auth-credential.test";
+import "./authorization.test";
+import "./password-hashing.test";
+import "./recovery.test";
+import "./registration-flow.test";
 import "./registration-validation.test";
+import "./session-lifecycle.test";
+import "./sign-in.test";
 import type { ConfigurationApiError, ConfigurationApiRequest, ConfigurationApiResponse } from "../config/api";
 import type { ConfigurationRepository, ConfigurationUpdate } from "../config/persistence";
 import { applyConfigurationDefaults } from "../config/defaults";

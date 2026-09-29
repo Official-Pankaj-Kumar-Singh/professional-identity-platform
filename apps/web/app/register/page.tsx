@@ -7,7 +7,22 @@ export default function RegisterPage() {
       <Link href="/" className="text-sm text-slate-600 hover:underline">← Professional Identity</Link>
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
       <p className="mt-2 text-slate-600">Start your professional identity journey.</p>
-      <RegistrationForm onSubmit={async () => ({ ok: false, message: "Account creation is not available until secure account storage and password hashing are configured." })} />
+      <RegistrationForm onSubmit={async (values) => {
+        const response = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        const data = await response.json().catch(() => ({ ok: false, error: { code: "invalid-input", message: "We could not create your account. Please try again." } }));
+        if (data.ok) return { ok: true };
+        return {
+          ok: false,
+          message: data.error?.message ?? "We could not create your account. Please try again.",
+          fieldErrors: data.error?.code === "invalid-input"
+            ? { email: "Check your email address.", password: "Check your password." }
+            : undefined,
+        };
+      }} />
       <p className="mt-6 text-center text-sm text-slate-600">Already have an account? <Link href="/login" className="font-medium text-slate-950 underline">Sign in</Link></p>
     </section>
   </main>;
