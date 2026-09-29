@@ -67,6 +67,16 @@ The service validates required fields, basic email format, and the minimum passw
 
 No professional profile fields are part of account registration. Account creation does not log in the user or create a session.
 
+## Duplicate registration handling (Task #101)
+
+Task #100 makes identity unique; this task makes rejecting an already-registered identity safe to do so. A duplicate registration creates no second account, and the response discloses no account details — but withholding the identity from the message is only half of non-disclosure. The service therefore computes the password hash **before** it tests for an existing account, so a rejected duplicate performs the same expensive work as a first-time registration. Returning early on the duplicate path made "this identity is registered" observable as a much faster response, which would have handed back exactly the fact the error message is written to withhold.
+
+Ordering in `create-account.ts` is therefore: validate, hash, test for an existing account, build, persist. The early `existsByEmail` rejection survives as a cheap short-circuit, and the repository's atomic check from Task #100 remains the authority on uniqueness — this ordering does not weaken that invariant, it only removes a side channel. Malformed input still short-circuits before hashing, because an invalid request carries no information about whether an account exists.
+
+Duplicate attempts are deliberately made to cost the server a hash. That trades a small amount of CPU for removing an identity-enumeration oracle, which is the right direction for an endpoint that accepts unauthenticated input.
+
+Race conditions and concurrent duplicate attempts are verified separately under Task #102.
+
 ## Security and production integration
 
 Password hashing uses scrypt with a random per-hash salt and constant-time verification. The repository receives only the hash, not the raw password. The public account result never contains credential material, and duplicate-registration responses never disclose the email. A shared write lock guarantees that concurrent registration attempts for the same identity cannot create two accounts until a real database unique constraint is introduced.

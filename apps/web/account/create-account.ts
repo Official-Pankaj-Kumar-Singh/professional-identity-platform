@@ -49,14 +49,14 @@ export function createAccountService(dependencies: AccountCreationDependencies):
 
       const email = input.email.trim().toLowerCase();
 
-      try {
-        const existing = await dependencies.repository.existsByEmail(email);
-        if (!existing.ok) return { ok: false, error: storageFailure() };
-        if (existing.value) return { ok: false, error: alreadyExists() };
-      } catch {
-        return { ok: false, error: storageFailure() };
-      }
-
+      // Task #101 — the password hash is computed *before* the duplicate check so
+      // that a rejected duplicate costs the same as a first-time registration.
+      // Returning on the duplicate path used to skip scrypt entirely, which made
+      // "this identity is already registered" observable as a far faster response
+      // than a successful registration. Doing equal work on both paths stops the
+      // timing of the response from disclosing what the message deliberately
+      // withholds. This is duplicate-response safety only; it does not change the
+      // uniqueness invariant itself.
       let passwordHash: string;
       try {
         const hashed = await dependencies.passwordHasher.hash(input.password);
@@ -66,6 +66,17 @@ export function createAccountService(dependencies: AccountCreationDependencies):
         passwordHash = hashed.passwordHash;
       } catch {
         return { ok: false, error: credentialFailure() };
+      }
+
+      // A cheap early rejection only. It no longer carries the whole duplicate
+      // signal, because the hash above has already been paid for either way, and
+      // Task #100's atomic check inside the repository remains the authority.
+      try {
+        const existing = await dependencies.repository.existsByEmail(email);
+        if (!existing.ok) return { ok: false, error: storageFailure() };
+        if (existing.value) return { ok: false, error: alreadyExists() };
+      } catch {
+        return { ok: false, error: storageFailure() };
       }
 
       let account: Account;
