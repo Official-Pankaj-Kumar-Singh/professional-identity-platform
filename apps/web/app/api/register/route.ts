@@ -1,7 +1,7 @@
 /**
- * @file app/register/route.ts
+ * @file app/api/register/route.ts
  *
- * Server-side registration endpoint.
+ * Server-side registration endpoint, served at POST /api/register.
  *
  * This route is the production registration boundary. It validates input,
  * normalizes the email identity, hashes the password, and persists the
@@ -17,13 +17,19 @@
  * composition instead of building its own, so every request sees the same
  * account set and a repeated normalized identity is rejected. That store is
  * process-local and in-memory — not durable production persistence.
+ *
+ * Routing (Task #154): this handler lives under `app/api/` so it does not
+ * occupy the same App Router segment as the registration UI page. A `route.ts`
+ * may not coexist with a `page.tsx` in one segment. `app/register/page.tsx`
+ * serves GET /register; this file serves POST /api/register.
  */
 
 import { NextResponse } from "next/server";
 // Relative import (not the `@/*` alias) so the route is loadable by the plain
 // Node test build, which compiles the real handler without Next's alias resolver.
-import { getAccountComposition } from "../../account/application";
-import type { AccountCreationResult } from "../../account/types";
+// Depth is three levels because the handler moved under app/api/ (Task #154).
+import { getAccountComposition } from "../../../account/application";
+import type { AccountCreationResult } from "../../../account/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

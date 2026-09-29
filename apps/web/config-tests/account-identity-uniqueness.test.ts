@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createAccountComposition } from "../account/composition";
 import { resetAccountComposition, setAccountComposition } from "../account/application";
-import { POST as registerAccount } from "../app/register/route";
+import { POST as registerAccount } from "../app/api/register/route";
 
 const password = "correct horse battery staple";
 
