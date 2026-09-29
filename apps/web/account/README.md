@@ -24,6 +24,41 @@ Concrete implementations live alongside the contracts:
 
 No password hashing library or third-party dependency is introduced; `node:crypto` ships with Node and provides a vetted, parameterized scrypt implementation. A production deployment should later swap the in-memory stores for a real database with a unique constraint on normalized email.
 
+## Canonical identity comparison (Task #100)
+
+Account identity is the normalized email address. `normalizeEmail` in
+`account/repository.ts` defines the comparison and is the only normalization used
+for identity:
+
+1. Trim leading and trailing whitespace (including tabs and newlines).
+2. Lowercase the whole address.
+
+No other transformation is applied: the local part is case-sensitive for some real
+providers, and plus-addressing (`a+b@example.com`) and dot variants are treated as
+distinct identities. Two registration inputs denote the same account exactly when
+their normalized values are equal, so `Person@Example.com `, `PERSON@example.com`,
+and `\tperson@example.com\n` are one identity.
+
+Uniqueness invariant: at most one account may exist per normalized identity. Both
+sides of the boundary use the same normalization — the service normalizes before
+`existsByEmail`, and `InMemoryAccountRepository.create` re-normalizes and re-checks
+under the shared `AccountWriteLock` before inserting, so the check and the write are
+one atomic step and concurrent registrations cannot both win.
+
+## Where the invariant lives across requests
+
+`account/application.ts` exposes the process-wide composition that route handlers
+use. Uniqueness is an invariant over the whole account set, so requests must share
+one repository; a handler that built its own composition per request would start
+from an empty account set every time and accept a repeated identity.
+`config-tests/account-identity-uniqueness.test.ts` drives the real `/register`
+handler twice to pin this down.
+
+**Limitation:** that shared composition is process-local. Accounts live in Node
+memory, disappear on restart, and are not shared between processes, serverless
+invocations, or deployment instances. It is registration scaffolding, not durable
+production persistence.
+
 ## Validation and neighboring stories
 
 The service validates required fields, basic email format, and the minimum password length independently of the UI. It normalizes email identity, checks for an existing account, and handles the repository's atomic `already-exists` result; broader duplicate-account behavior belongs to US-03.
