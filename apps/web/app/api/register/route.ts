@@ -1,7 +1,7 @@
 /**
- * @file app/register/route.ts
+ * @file app/api/register/route.ts
  *
- * Server-side registration endpoint.
+ * Server-side registration endpoint, served at POST /api/register.
  *
  * This route is the production registration boundary. It validates input,
  * normalizes the email identity, hashes the password, and persists the
@@ -12,6 +12,11 @@
  * Fail-closed behavior: any unexpected error produces a generic failure
  * response that does not disclose whether the account already exists or
  * which storage path failed.
+ *
+ * Routing (Task #154): this handler lives under `app/api/` so it does not
+ * occupy the same App Router segment as the registration UI page. A `route.ts`
+ * may not coexist with a `page.tsx` in one segment. `app/register/page.tsx`
+ * serves GET /register; this file serves POST /api/register.
  */
 
 import { NextResponse } from "next/server";
