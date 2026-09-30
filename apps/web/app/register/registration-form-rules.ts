@@ -23,7 +23,7 @@
  * deliberately untouched here.
  */
 
-import { validateRegistration, type RegistrationField } from "../../account/registration-validation";
+import { validateRegistration, MIN_REGISTRATION_PASSWORD_LENGTH, type RegistrationField } from "../../account/registration-validation";
 
 export type RegistrationFieldErrors = Partial<Record<RegistrationField, string>>;
 
@@ -32,8 +32,11 @@ export interface RegistrationFormValues {
   password: string;
 }
 
-/** Shown when the form is used but nothing has been entered yet. */
-export const REGISTRATION_HINT = "Use at least 12 characters.";
+/**
+ * Shown when the form is used but nothing has been entered yet. Derived from the
+ * shared policy so the hint cannot contradict the rule it describes.
+ */
+export const REGISTRATION_HINT = `Use at least ${MIN_REGISTRATION_PASSWORD_LENGTH} characters.`;
 
 /** Generic copy for any failure whose cause must not be described to the user. */
 export const REGISTRATION_GENERIC_ERROR = "We could not create your account. Please try again.";

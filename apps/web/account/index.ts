@@ -1,6 +1,6 @@
 export { createAccountService } from "./create-account";
-export { validateRegistration } from "./registration-validation";
-export type { RegistrationField, RegistrationValidationIssue, RegistrationValidationResult } from "./registration-validation";
+export { validateRegistration, MIN_REGISTRATION_PASSWORD_LENGTH } from "./registration-validation";
+export type { RegistrationField, RegistrationValidationCode, RegistrationValidationIssue, RegistrationValidationResult } from "./registration-validation";
 export type {
   Account,
   AccountCreationDependencies,

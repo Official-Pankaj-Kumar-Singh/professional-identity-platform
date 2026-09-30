@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MIN_REGISTRATION_PASSWORD_LENGTH } from "../../account/registration-validation";
 import {
   REGISTRATION_HINT,
   REGISTRATION_GENERIC_ERROR,
@@ -42,7 +43,7 @@ export function RegistrationForm({ onSubmit }: { onSubmit: (values: Registration
     </div>
     <div>
       <label htmlFor="registration-password" className="mb-1 block text-sm font-medium">Password</label>
-      <input id="registration-password" name="password" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={event => setPassword(event.target.value)} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "registration-password-error" : "registration-password-hint"} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+      <input id="registration-password" name="password" type="password" autoComplete="new-password" required minLength={MIN_REGISTRATION_PASSWORD_LENGTH} value={password} onChange={event => setPassword(event.target.value)} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "registration-password-error" : "registration-password-hint"} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
       {errors.password ? <p id="registration-password-error" className="mt-1 text-sm text-red-700">{errors.password}</p> : <p id="registration-password-hint" className="mt-1 text-sm text-slate-600">{REGISTRATION_HINT}</p>}
     </div>
     <p role="status" aria-live="polite" className="text-sm text-slate-700">{message}</p>
