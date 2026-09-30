@@ -43,8 +43,20 @@ export function createAccountService(dependencies: AccountCreationDependencies):
     async create(input: RegistrationInput): Promise<AccountCreationResult> {
       if (!isRegistrationInput(input)) return { ok: false, error: invalidInput() };
 
-      if (!validateRegistration(input).ok) {
-        return { ok: false, error: { code: "invalid-input", message: "Check the registration details and try again." } };
+      // Task #98: the shared policy already names the field and code for each
+      // failure, so they are carried through instead of being collapsed into one
+      // flat message. A caller can then attribute the error to a field without
+      // parsing text, and without the message ever containing what was typed.
+      const validation = validateRegistration(input);
+      if (!validation.ok) {
+        return {
+          ok: false,
+          error: {
+            code: "invalid-input",
+            message: "Check the registration details and try again.",
+            issues: validation.issues,
+          },
+        };
       }
 
       const email = input.email.trim().toLowerCase();

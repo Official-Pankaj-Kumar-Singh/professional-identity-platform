@@ -1,6 +1,8 @@
 /** Stable account identifier. The application composition layer supplies its generator. */
 export type AccountId = string;
 
+import type { RegistrationValidationIssue } from "./registration-validation";
+
 /** Identity information safe to return to application callers. */
 export interface AccountIdentity {
   email: string;
@@ -64,6 +66,14 @@ export type AccountCreationErrorCode =
 export interface AccountCreationError {
   code: AccountCreationErrorCode;
   message: string;
+  /**
+   * Task #98: when `code` is `invalid-input`, the field-level issues that caused
+   * the rejection, so a caller can attribute the error without parsing a
+   * message. Messages come from the shared registration policy and never
+   * contain a submitted value, so carrying them reveals only which field was
+   * rejected, never what was typed.
+   */
+  issues?: RegistrationValidationIssue[];
 }
 
 export type AccountCreationResult =
