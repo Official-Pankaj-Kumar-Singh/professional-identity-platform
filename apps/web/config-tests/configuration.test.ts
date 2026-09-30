@@ -6,6 +6,7 @@ import "./account-persistence.test";
 import "./duplicate-identity-races.test";
 import "./registration-form-feedback.test";
 import "./registration-security.test";
+import "./registration-field-rules.test";
 import "./account-management.test";
 import "./auth-credential.test";
 import "./authorization.test";
