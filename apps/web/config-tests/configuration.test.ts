@@ -4,6 +4,7 @@ import "./account-creation.test";
 import "./account-identity-uniqueness.test";
 import "./account-persistence.test";
 import "./duplicate-identity-races.test";
+import "./registration-form-feedback.test";
 import "./account-management.test";
 import "./auth-credential.test";
 import "./authorization.test";

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RegistrationForm } from "./registration-form";
+import { toRegistrationFeedback, REGISTRATION_GENERIC_ERROR } from "./registration-form-rules";
 
 export default function RegisterPage() {
   return <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-950">
@@ -15,15 +16,10 @@ export default function RegisterPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(values),
         });
-        const data = await response.json().catch(() => ({ ok: false, error: { code: "invalid-input", message: "We could not create your account. Please try again." } }));
-        if (data.ok) return { ok: true };
-        return {
-          ok: false,
-          message: data.error?.message ?? "We could not create your account. Please try again.",
-          fieldErrors: data.error?.code === "invalid-input"
-            ? { email: "Check your email address.", password: "Check your password." }
-            : undefined,
-        };
+        // A body that is not JSON at all must not become an unhandled rejection
+        // in the form, so it is replaced with a neutral failure.
+        const data = await response.json().catch(() => null);
+        return toRegistrationFeedback(data ?? { ok: false, error: { code: "invalid-input", message: REGISTRATION_GENERIC_ERROR } });
       }} />
       <p className="mt-6 text-center text-sm text-slate-600">Already have an account? <Link href="/login" className="font-medium text-slate-950 underline">Sign in</Link></p>
     </section>
