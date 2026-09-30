@@ -7,6 +7,7 @@ import "./duplicate-identity-races.test";
 import "./registration-form-feedback.test";
 import "./registration-security.test";
 import "./registration-field-rules.test";
+import "./server-validation-parity.test";
 import "./account-management.test";
 import "./auth-credential.test";
 import "./authorization.test";

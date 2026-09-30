@@ -64,21 +64,42 @@ export type RegistrationFeedback =
 /** The shape the registration endpoint returns. */
 export interface RegistrationResponsePayload {
   ok?: boolean;
-  error?: { code?: string; message?: string };
+  account?: { id?: string; email?: string };
+  error?: { code?: string; message?: string; issues?: Array<{ field?: string; code?: string; message?: string }> };
+}
+
+const REGISTRATION_FIELDS = new Set(["email", "password"]);
+
+function fieldErrorsFromIssues(
+  issues: Array<{ field?: string; code?: string; message?: string }> | undefined,
+): RegistrationFieldErrors | undefined {
+  if (!Array.isArray(issues) || issues.length === 0) return undefined;
+  const errors: RegistrationFieldErrors = {};
+  for (const issue of issues) {
+    if (typeof issue?.field !== "string" || !REGISTRATION_FIELDS.has(issue.field)) continue;
+    if (typeof issue.message !== "string" || issue.message.length === 0) continue;
+    if (errors[issue.field as RegistrationField] === undefined) {
+      errors[issue.field as RegistrationField] = issue.message;
+    }
+  }
+  return Object.keys(errors).length > 0 ? errors : undefined;
 }
 
 /**
  * Translate a server response into safe on-screen feedback.
  *
- * A rejection is surfaced with the server's own message, except for
- * `invalid-input`, which is the one code the server reports for malformed input
- * it cannot attribute to a single field. That case is attached to both fields
- * so the user knows where to look without the server having to enumerate which
- * field was wrong.
+ * Task #98: the server names the field behind an `invalid-input` rejection, so
+ * those issues are used directly. The form no longer has to guess by blaming
+ * both fields at once, and the messages it shows are the same ones the server
+ * produced — one set of expectations, not two.
  *
- * `already-exists` deliberately keeps the server's non-disclosing message. The
- * form must not turn a duplicate into advice that reveals the identity, so no
- * special case is added for it here.
+ * The messages come from the shared registration policy, which never embeds a
+ * submitted value, so rendering them discloses which field was rejected and
+ * nothing about what was typed.
+ *
+ * `already-exists` deliberately keeps the server's non-disclosing message and
+ * stays unattached to any field: a duplicate must not be turned into advice
+ * that reveals the identity.
  */
 export function toRegistrationFeedback(payload: RegistrationResponsePayload): RegistrationFeedback {
   if (payload?.ok) return { ok: true };
@@ -88,6 +109,12 @@ export function toRegistrationFeedback(payload: RegistrationResponsePayload): Re
   const raw = payload?.error?.message;
   const message = typeof raw === "string" && raw.trim().length > 0 ? raw : REGISTRATION_GENERIC_ERROR;
   if (payload?.error?.code !== "invalid-input") return { ok: false, message };
+
+  const attributed = fieldErrorsFromIssues(payload.error.issues);
+  if (attributed) return { ok: false, message, fieldErrors: attributed };
+
+  // Fallback for a server that rejects without naming a field: blame both rather
+  // than guess one, so the user is never pointed at a field that was fine.
   return {
     ok: false,
     message,
