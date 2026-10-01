@@ -59,6 +59,14 @@ export interface SessionRepository {
   get(id: SessionId): Promise<SessionRepositoryResult<Session | null>>;
   /** Returns the session only when it is still valid at the supplied clock. */
   getValid(id: SessionId, now: () => string): Promise<SessionEvaluation>;
+  /**
+   * Extends a still-valid session's expiry and stamps its last-use time
+   * (Task #113). Returns the renewed session, or `null` when the session is
+   * unknown or already expired — an expired session is never resurrected. A
+   * `null` `expiresAt` means policy declined to renew and the record is
+   * returned unchanged.
+   */
+  renew(id: SessionId, now: string, expiresAt: string | null): Promise<SessionRepositoryResult<Session | null>>;
   destroy(id: SessionId): Promise<SessionRepositoryResult<boolean>>;
   /** Destroy every session for an account (used on logout-all and deletion). */
   destroyAllForAccount(accountId: AccountId): Promise<SessionRepositoryResult<number>>;

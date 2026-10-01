@@ -218,6 +218,40 @@ The signed-out experience returned to is the public landing page. The authentica
 application entry point does not exist yet — building it is Task #137 — so no
 navigation is performed on logout.
 
+## Session policy (Task #112)
+
+The policy is stated once, in `session/policy.ts`, and referenced from `session/composition.ts`. It is not a literal buried in a factory.
+
+**Lifetime.** A session is valid for 24 hours (`SESSION_LIFETIME_MS`) from its most recent authenticated use. This is the value the code already used; making it explicit does not change how long a user stays signed in.
+
+**Active versus expired.** A session is active when the evaluation instant is strictly *before* its `expiresAt`; at `expiresAt` it is already expired. Expiry is inclusive, so a session lives for exactly one lifetime. The comparison is made once, in the repository, and `policy.isExpiredAt` states the same rule so the two cannot drift.
+
+**Renewal is sliding.** A request that presents an active session moves its expiry forward to `now + SESSION_LIFETIME_MS`. Two properties follow, and both matter:
+
+- It is not unbounded. Renewal happens *only* on a request that already presented a valid session, so an idle session is never extended and therefore still expires on schedule.
+- It is not free. An expired session is refused renewal at three layers: the route evaluates before it refreshes, the service refuses a non-active session, and the repository refuses an expired record.
+
+**The identifier is stable.** Renewal moves the expiry; it never reissues the identifier. A rotating identifier would require the new value to reach the browser before the old one stopped working, which leaves a window where two credentials are live for one user. An established cookie keeps working until it genuinely expires.
+
+**The cookie is reissued on renewal.** `GET /api/me` returns a fresh `Set-Cookie` whose `Max-Age` is derived from the renewed session's own `expiresAt`, measured with *the session store's clock* rather than a separate `Date.now()`. Otherwise the browser would keep the original lifetime while the server held a later one, and the two would silently disagree.
+
+## Persistence (Task #113)
+
+"Survives an application refresh" means the session survives page reloads and in-flight requests, not that it survives a server restart. Both halves are real, and only the second one is out of reach today:
+
+- **Within a process — supported.** The session is issued once at sign-in and lives in the shared composition. Page reloads, navigation, and repeated API calls present the same cookie, and every request observes the same store. This is continuity, and it works.
+- **Across restarts or instances — not supported.** Sessions live in `InMemorySessionRepository` inside one Node process. They are lost on restart and are not shared between processes, serverless invocations, or deployment instances.
+
+No database, ORM, or external session store was introduced. The `SessionRepository` contract is storage-agnostic precisely so a durable store can be installed later with `setSessionComposition` without touching a single caller.
+
+## Expired sessions (Task #115, #116)
+
+An expired session is presented to clients exactly like every other unauthenticated request: `401` with `{ "ok": false, "error": { "code": "unauthenticated", "message": "Sign in to continue." } }` and no account data.
+
+This is deliberate. Distinguishing "expired" from "never existed" at the HTTP boundary would let a caller use the response to learn whether a session identifier was once real. The server still distinguishes them internally — `evaluate` reports `expired` separately from `revoked` — so logging and any future re-authentication prompt can tell them apart without disclosing anything.
+
+Because every failure looks the same, the client contract is uniform: any non-`200` from the protected boundary means unauthenticated. `app/session/auth-state.ts` implements that as `resolveAuthState`, which maps every non-ok response, malformed payload, and transport failure to the anonymous state and retains no account data. A session that expires under a live page therefore moves the UI back to unauthenticated with no expiry-specific branch. `app/logout/logout-action.tsx` uses it, so an expired session and a logged-out one converge on the same state.
+
 ## Adjacent work this contract does not perform
 
 - Task #112 sets session lifetime and secure-handling policy.
