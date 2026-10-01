@@ -7,21 +7,25 @@ import {
   LOGOUT_SUCCESS_MESSAGE,
   toLogoutFeedback,
 } from "./logout-form-rules";
+import { ANONYMOUS, resolveAuthState, type AuthState } from "../session/auth-state";
 
 /**
- * Task #107 — the explicit logout action.
+ * Task #107 — the explicit logout action. Task #116 — expired-session state.
  *
  * The component decides only one thing: whether the visitor currently has a
- * session. It probes the existing protected boundary (`GET /api/me`) rather than
- * trusting anything the client holds, because the session cookie is `HttpOnly`
- * and page script cannot read it. An authenticated visitor therefore sees a
- * `Log out` control; an anonymous one sees `Sign in`.
+ * session. It asks the existing protected boundary (`GET /api/me`) through the
+ * shared `resolveAuthState` rather than trusting anything the client holds,
+ * because the session cookie is `HttpOnly` and page script cannot read it.
+ *
+ * Because `resolveAuthState` maps every non-authenticated response — including
+ * an expired session's 401 — to `ANONYMOUS`, a session that expires underneath
+ * a live page moves this control back to `Sign in` on the next probe, with no
+ * expiry-specific branch here (Task #116).
  *
  * Invoking logout posts to `POST /logout`, which destroys the session server-side
- * and clears the cookie. The component then returns the visitor to the
- * unauthenticated state by re-probing, which is what makes the transition
- * observable: the control flips back to `Sign in` because the session really is
- * gone, not merely hidden.
+ * and clears the cookie. The component then re-resolves, which is what makes the
+ * transition observable: the control flips back to `Sign in` because the session
+ * really is gone, not merely hidden.
  *
  * The signed-out experience this returns the user to is the public landing page.
  * The authenticated application entry point does not exist yet — building it is
@@ -33,31 +37,24 @@ import {
  * signed out while the session is still valid.
  */
 export function LogoutAction({ signedInPath = "/login" }: { signedInPath?: string }) {
-  const [state, setState] = useState<"checking" | "anonymous" | "authenticated">("checking");
+  const [auth, setAuth] = useState<AuthState>(ANONYMOUS);
+  const [checked, setChecked] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
 
-  /**
-   * Asks the protected boundary whether this visitor has a session. Returns the
-   * answer rather than storing it, so the caller decides when to react.
-   */
-  async function probe(): Promise<boolean> {
-    try {
-      const response = await fetch("/api/me", { cache: "no-store" });
-      return response.ok;
-    } catch {
-      // A failed probe is not evidence of authentication, so it reports false
-      // rather than offering a logout that cannot work.
-      return false;
-    }
+  async function refreshState(): Promise<void> {
+    setAuth(await resolveAuthState());
+    setChecked(true);
   }
 
   // State is set from the promise callback rather than the effect body, so the
   // probe cannot cascade a synchronous render on mount.
   useEffect(() => {
     let active = true;
-    void probe().then((authenticated) => {
-      if (active) setState(authenticated ? "authenticated" : "anonymous");
+    void resolveAuthState().then((resolved) => {
+      if (!active) return;
+      setAuth(resolved);
+      setChecked(true);
     });
     return () => {
       active = false;
@@ -77,8 +74,9 @@ export function LogoutAction({ signedInPath = "/login" }: { signedInPath?: strin
       setMessage(feedback.ok ? LOGOUT_SUCCESS_MESSAGE : feedback.message);
       // The protected boundary is the only trustworthy signal of session state,
       // so it decides what the control shows either way. After a successful
-      // logout this returns false, which is the unauthenticated transition.
-      setState((await probe()) ? "authenticated" : "anonymous");
+      // logout this resolves to ANONYMOUS, which is the unauthenticated
+      // transition.
+      await refreshState();
     } catch {
       setMessage(LOGOUT_GENERIC_ERROR);
     } finally {
@@ -86,13 +84,13 @@ export function LogoutAction({ signedInPath = "/login" }: { signedInPath?: strin
     }
   }
 
-  if (state === "checking") {
+  if (!checked) {
     // Nothing is asserted before the probe resolves, so an authenticated visitor
     // is never briefly shown a `Sign in` link that would abandon their session.
     return <span className="px-4 py-2 text-sm text-slate-400">…</span>;
   }
 
-  if (state === "authenticated") {
+  if (auth.authenticated) {
     return (
       <span className="flex items-center gap-3">
         <p role="status" aria-live="polite" className="text-sm text-slate-600">{message}</p>

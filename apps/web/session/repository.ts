@@ -10,6 +10,7 @@
  */
 
 import { AccountWriteLock } from "../account/lock";
+import { isExpiredAt } from "./policy";
 import type {
   Session,
   SessionEvaluation,
@@ -58,6 +59,31 @@ export class InMemorySessionRepository implements SessionRepository {
       return { status: "expired", session };
     }
     return { status: "active", session };
+  }
+
+  /**
+   * Moves a session's expiry forward and stamps its last-use time (Task #113).
+   *
+   * Renewal is refused for a session that is already expired at the supplied
+   * clock, which is what stops an expired session from being resurrected. The
+   * identifier is deliberately not changed: policy keeps it stable for the life
+   * of the session, and reissuing it would create a window where two
+   * credentials are live for one user.
+   *
+   * A `null` `expiresAt` means policy declined to renew, and the stored record is
+   * left exactly as it was.
+   */
+  async renew(id: string, now: string, expiresAt: string | null): Promise<SessionRepositoryResult<Session | null>> {
+    return this.lock.withLock(async () => {
+      const session = this.sessions.get(id);
+      if (!session) return { ok: true, value: null };
+      if (expiresAt === null) return { ok: true, value: session };
+      if (isExpiredAt(session.expiresAt, now)) return { ok: true, value: null };
+
+      const renewed: Session = { ...session, expiresAt, updatedAt: now };
+      this.sessions.set(id, renewed);
+      return { ok: true, value: renewed };
+    });
   }
 
   async destroy(id: string): Promise<SessionRepositoryResult<boolean>> {
