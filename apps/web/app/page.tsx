@@ -1,3 +1,5 @@
+import { LogoutAction } from "./logout/logout-action";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
@@ -7,9 +9,9 @@ export default function Home() {
             Professional Identity
           </div>
 
-          <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">
-            Sign in
-          </button>
+          {/* Task #107: shows `Sign in` when anonymous and `Log out` when the
+              protected boundary reports an active session. */}
+          <LogoutAction />
         </nav>
 
         <div className="flex flex-1 items-center">

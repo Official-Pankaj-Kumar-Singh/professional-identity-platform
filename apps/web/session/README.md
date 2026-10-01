@@ -167,11 +167,61 @@ These are recorded rather than resolved. **Task #110 must settle each one consis
 6. **Session lifetime.** The `Max-Age` a browser holds is derived from the session's `expiresAt`, whose TTL currently defaults to 24 hours in `session/composition.ts`. Whether that is the correct lifetime is Task #112's policy decision. #110 must consume the session's own expiry and must not restate a lifetime of its own.
 7. **Cross-site request forgery.** `SameSite=Lax` is the only mitigation in place, and there is no CSRF token. For a `GET` resource that returns data to the caller rather than mutating state this is not the primary control, but if a protected resource is ever added that mutates state, this contract does not yet cover it.
 
+## Session termination (Task #106)
+
+`POST /logout` implements explicit termination. Termination is server-side and is not
+equivalent to forgetting a cookie: the session is destroyed in the shared session
+store, so the identifier stops authenticating even for a caller that retained a copy
+of it. A logout that only cleared the cookie would leave a valid credential in any
+browser, proxy log, or attacker copy.
+
+The handler resolves `getSessionComposition()` rather than constructing its own. A
+logout that built a private composition would destroy the identifier against a
+brand-new empty repository, report success, and leave the real session alive.
+
+The session is read from the same `Cookie` header the protected resource reads, using
+a reader that tolerates a malformed value. Both routes must accept and reject exactly
+the same cookies: a session the protected resource honours but logout cannot terminate
+would be a session that could never be ended.
+
+Every response clears the cookie, including one that carried no session and one where
+storage failed. Clearing mirrors the attributes set at sign-in — same name, `Path=/`,
+`HttpOnly`, `SameSite=Lax`, and `Secure` only under `NODE_ENV === "production"` —
+because a browser only replaces a cookie whose name, path, and domain all match. An
+expiry in the past plus `Max-Age=0` instructs removal rather than overwriting with an
+empty value. The name is imported from the sign-in endpoint rather than re-declared,
+so the two cannot drift into two different cookies.
+
+Termination is scoped to one session. Signing in again after logout yields a new
+session, and an unrelated session for the same account is unaffected. The account
+itself is never touched, so a signed-out user can sign straight back in.
+
+Idempotent: logging out when already signed out is a success, not an error. The caller
+ends up unauthenticated either way, so `destroyed: false` is the honest report of an
+already-terminated session and the response stays `200`.
+
+**Limitation — process-local, not durable session storage.** Termination is real within
+the process that owns the session. Because sessions live in one Node process, a
+revocation cannot be observed by a different instance, and sessions do not survive a
+restart. Revocation that survives both belongs to Task #113.
+
+## The unauthenticated transition (Task #107)
+
+`LogoutAction` decides whether to offer `Sign in` or `Log out` by probing `GET /api/me`
+rather than trusting client-held state, because the session cookie is `HttpOnly` and
+page script cannot read it. Invoking logout posts to `POST /logout` and then re-probes;
+the control returning to `Sign in` is therefore evidence that the session is really gone
+rather than merely hidden. On failure the visitor is left exactly as they were, so the
+component never appears signed out while its session is still valid.
+
+The signed-out experience returned to is the public landing page. The authenticated
+application entry point does not exist yet — building it is Task #137 — so no
+navigation is performed on logout.
+
 ## Adjacent work this contract does not perform
 
-- Task #106 implements session termination and cookie clearing. This contract only defines what "active" means, and therefore what a terminated session must stop being.
-- Task #111 proves these boundaries at the HTTP boundary, including requests that bypass client navigation.
 - Task #112 sets session lifetime and secure-handling policy.
-- Task #113 implements session persistence and refresh. Nothing here refreshes a session; `evaluate` reports expiry and does not extend it.
+- Task #113 implements session persistence and refresh. Nothing here refreshes a session; `evaluate` reports expiry and does not extend it, and it does not distribute revocation between instances.
+- Task #114–#117 own session continuity and the expired-session path. This contract and the logout handler treat an expired session the same as any other non-active session: unauthenticated.
 - Task #115 owns the expired-session response contract, including whether expiry is distinguishable from revocation.
 - Tasks #118–#120 own the ownership rule and its enforcement across private operations. This contract consumes the service; it does not define the rule.
