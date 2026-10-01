@@ -9,10 +9,14 @@
  */
 
 import { NextResponse } from "next/server";
-import { createAccountPersistence } from "@/account/persistence";
-import { createSessionComposition } from "@/session/composition";
-import { createAuthorizationService } from "@/authorization/service";
-import type { Account } from "@/account/types";
+// Relative import (not the `@/*` alias) so the route is loadable by the plain
+// Node test build, which compiles the real handler without Next's alias
+// resolver. Same approach, and same reason, as `app/api/register/route.ts`.
+// Depth is three levels because the handler lives under app/api/.
+import { getAccountComposition } from "../../../account/application";
+import { getSessionComposition } from "../../../session/application";
+import { createAuthorizationService } from "../../../authorization/service";
+import type { Account } from "../../../account/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,15 +25,15 @@ export async function GET(request: Request): Promise<Response> {
   const sessionId = readSessionId(request);
   if (!sessionId) return unauthorized();
 
-  const sessions = createSessionComposition();
+  const sessions = getSessionComposition();
   const evaluation = await sessions.evaluate(sessionId);
 
   if (evaluation.status !== "active" || !evaluation.session) {
     return unauthorized();
   }
 
-  const persistence = createAccountPersistence();
-  const account: Account | null = persistence.getAccountById(evaluation.session.accountId);
+  const composition = getAccountComposition();
+  const account: Account | null = composition.persistence.getAccountById(evaluation.session.accountId);
   if (!account) return unauthorized();
 
   const authorization = createAuthorizationService();
@@ -49,11 +53,26 @@ export async function GET(request: Request): Promise<Response> {
   }, 200);
 }
 
+/**
+ * Reads the session identifier from the `Cookie` header.
+ *
+ * Returns `null` when the header is absent, the cookie is missing,
+ * or the cookie value cannot be decoded. Malformed percent-encoding
+ * in the cookie value is treated as an absent session rather than
+ * surfacing a server error — this prevents a caller who controls the
+ * cookie from turning an authentication check into a 500.
+ */
 function readSessionId(request: Request): string | null {
   const cookie = request.headers.get("cookie");
   if (!cookie) return null;
   const match = /(?:^|;\s*)sessionId=([^;]+)/.exec(cookie);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    // Malformed percent-encoding — treat as absent session
+    return null;
+  }
 }
 
 function unauthorized(): Response {

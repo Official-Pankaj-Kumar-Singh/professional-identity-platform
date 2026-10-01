@@ -19,6 +19,7 @@ import "./registration-validation.test";
 import "./session-lifecycle.test";
 import "./sign-in.test";
 import "./sign-in-experience.test";
+import "./auth-boundary.test";
 import type { ConfigurationApiError, ConfigurationApiRequest, ConfigurationApiResponse } from "../config/api";
 import type { ConfigurationRepository, ConfigurationUpdate } from "../config/persistence";
 import { applyConfigurationDefaults } from "../config/defaults";
