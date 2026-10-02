@@ -82,10 +82,14 @@ export function createAccountManagementService(dependencies: AccountManagementSe
    * Loads a resource and checks ownership. Returns the resource on success, or
    * the failure the caller must report.
    *
-   * The `not-found` result deliberately does not distinguish "no such account"
-   * from "no such account you may see": the account does not exist as far as
-   * this caller is concerned, which avoids turning the endpoint into an
-   * existence oracle for account IDs.
+   * An account that does not exist yields `not-found`, while one that exists
+   * but belongs to a different actor yields `forbidden`. Those two outcomes are
+   * distinguishable, so this is strictly an existence oracle for account IDs.
+   * That is accepted deliberately rather than collapsed into one response:
+   * account identifiers are cryptographically random UUIDs which cannot be
+   * enumerated, and `forbidden` is both the conventional signal and the far
+   * more useful one for an authenticated caller who asked for an account they
+   * do not own.
    */
   async function loadAuthorized(actor: AccountId | null, requestedId: string): Promise<
     { ok: true; account: Account } | { ok: false; error: AccountManagementFailure }

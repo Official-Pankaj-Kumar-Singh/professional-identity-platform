@@ -23,9 +23,12 @@ either being trusted.
 
 The resource is loaded *before* authorization so the check compares two real
 account IDs. A missing account is reported `not-found` before any ownership
-question is asked, and the same code is used whether the account does not exist
-or is not visible to the caller — so the endpoint is not an existence oracle for
-account IDs.
+question is asked; an account that exists but belongs to another actor is
+reported `forbidden`. The two are therefore distinguishable, which is strictly
+speaking an existence oracle for account IDs — accepted deliberately, because
+account identifiers are cryptographically random UUIDs that cannot be
+enumerated, and `forbidden` is the conventional and more useful signal for an
+authenticated caller who asked for an account they do not own.
 
 `authorization/service.ts` is the ownership primitive and is unchanged. It stays
 pure and stateless, and the repository stays storage-only: authorization is the
