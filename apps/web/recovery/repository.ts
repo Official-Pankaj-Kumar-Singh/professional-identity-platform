@@ -29,7 +29,21 @@ export class InMemoryRecoveryRepository {
     return record.token;
   }
 
+  async validate(token: string): Promise<ConsumeTokenResult> {
+    return this.inspect(token);
+  }
+
   async consume(token: string): Promise<ConsumeTokenResult> {
+    const outcome = this.inspect(token);
+    if (!outcome.ok) return outcome;
+    // Marking used is the only state change, so it happens after inspection
+    // succeeds and never for a token that was already invalid or spent.
+    this.records.set(token, { ...this.records.get(token)!, usedAt: this.clock() });
+    return outcome;
+  }
+
+  /** Shared classification for `validate` and `consume`; performs no mutation. */
+  private inspect(token: string): ConsumeTokenResult {
     const record = this.records.get(token);
     if (!record) return { ok: false, error: { code: "invalid-token", message: "This recovery link is not valid." } };
 
@@ -41,7 +55,6 @@ export class InMemoryRecoveryRepository {
       return { ok: false, error: { code: "expired-token", message: "This recovery link has expired." } };
     }
 
-    this.records.set(token, { ...record, usedAt: this.clock() });
     return { ok: true, accountId: record.accountId };
   }
 

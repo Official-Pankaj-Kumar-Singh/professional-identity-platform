@@ -24,6 +24,7 @@ import "./logout.test";
 import "./session-continuity.test";
 import "./expired-session.test";
 import "./account-management-api.test";
+import "./recovery-api.test";
 import type { ConfigurationApiError, ConfigurationApiRequest, ConfigurationApiResponse } from "../config/api";
 import type { ConfigurationRepository, ConfigurationUpdate } from "../config/persistence";
 import { applyConfigurationDefaults } from "../config/defaults";
