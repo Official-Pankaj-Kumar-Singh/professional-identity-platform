@@ -91,13 +91,21 @@ describe("password recovery (Tasks #121–#126)", () => {
     assert.ok(credential?.passwordHash.startsWith("scrypt"));
   });
 
-  it("rejects a too-short new password", async () => {
+  it("rejects a too-short new password without consuming the token", async () => {
     const deps = await seedAccount();
     const service = makeService(deps);
 
     await service.requestRecovery("person@example.com");
     const result = await service.resetPassword("token-1", "short");
     assert.equal(result.ok, false);
-    if (!result.ok) assert.equal(result.error.code, "invalid-token");
+    // Task #124: the password problem is reported as its own code rather than
+    // being reported as a bad token, so the form can explain the field. This
+    // expectation previously asserted "invalid-token", which described the link
+    // rather than the password.
+    if (!result.ok) assert.equal(result.error.code, "invalid-password");
+
+    // And the link must still be usable after a rejected attempt.
+    const retry = await service.resetPassword("token-1", "a sufficiently long replacement");
+    assert.equal(retry.ok, true, "a rejected password must not burn the recovery token");
   });
 });
